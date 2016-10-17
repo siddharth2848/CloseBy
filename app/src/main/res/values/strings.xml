@@ -3,4 +3,5 @@
     <string name="img_desc">Logo</string>
     <string name="app_desc">Find nearby places in three easy steps.</string>
     <string name="tut_desc">Enter the city name or choose your current location and you are ready to go.</string>
+    <string name="title_activity_maps">Map</string>
 </resources>
