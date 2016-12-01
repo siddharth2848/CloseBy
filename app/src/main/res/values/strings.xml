@@ -5,4 +5,7 @@
     <string name="tut_desc">Enter the city name or choose your current location and you are ready to go.</string>
     <string name="title_activity_maps">Map</string>
     <string name="auto">Type in your location</string>
+    <string name="google_maps_key">AIzaSyAqCU97oifXZwUaf2BGVPfwTnaw2yb_ALE</string>
+    <string name="prompt">Select place type</string>
+    <string name="title_activity_information">InformationActivity</string>
 </resources>

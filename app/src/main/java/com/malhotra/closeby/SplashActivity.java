@@ -2,8 +2,8 @@ package com.malhotra.closeby;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 public class SplashActivity extends AppCompatActivity {
@@ -26,6 +26,22 @@ public class SplashActivity extends AppCompatActivity {
                         Log.e(TAG, e.toString());
                     } finally {
                         Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                        startActivity(intent);
+                        finish();
+                    }
+                }
+            };
+            thread.start();
+        } else if (sp.contains("used") && sp.contains("data")) {
+            Thread thread = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        sleep(4000);
+                    } catch (Exception e) {
+                        Log.e(TAG, e.toString());
+                    } finally {
+                        Intent intent = new Intent(getApplicationContext(), PreviousDataActivity.class);
                         startActivity(intent);
                         finish();
                     }

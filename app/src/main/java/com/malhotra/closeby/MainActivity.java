@@ -1,7 +1,9 @@
 package com.malhotra.closeby;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.sqlite.SQLiteDatabase;
 import android.location.Address;
@@ -25,12 +27,19 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.GoogleMap;
+import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.JsonHttpResponseHandler;
 import com.makeramen.roundedimageview.RoundedImageView;
-import com.malhotra.closeby.helper.GooglePlacesReadTask;
 import com.malhotra.closeby.helper.PlacesAutoCompleteAdapter;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import cz.msebera.android.httpclient.Header;
 
 
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemClickListener, View.OnClickListener {
@@ -230,23 +239,111 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
     private void getData(Double latitude, Double longitude) {
-        String[] TYPES = {"ATM", "HOSPITAL", "HOTEL"};
-        for (String TYPE : TYPES) getData(latitude, longitude, TYPE);
+
+        openDatabase();
+
+        //, "HOSPITAL", "HOTEL"
+        String[] TYPES = {"airport", "atm", "bar",
+                "doctor", "gas_station", "convenience_store",
+                "library", "lodging", "movies",
+                "police", "restaurant", "shopping",
+                "hospital"};
+        for (int i = 0; i < TYPES.length; i++) {
+            callGetData(latitude, longitude, TYPES[i]);
+        }
+
+        //viewData();
+        startActivity(new Intent(this, MapFragment.class));
+        finish();
     }
 
-    private void getData(Double latitude, Double longitude, String placeType) {
+
+    private void callGetData(Double latitude, Double longitude, String s) {
+        getData(latitude, longitude, s);
+    }
+
+    private void openDatabase() {
+        StringBuilder table_query = new StringBuilder("CREATE TABLE IF NOT EXISTS  " +
+                "NEARBY (Latitude double,Longitude double,Place_Name text,Vicinity text,Type text)");
+        Log.d(TAG, "tb" + table_query.toString());
+
+        try {
+            db = openOrCreateDatabase("MapData.db", SQLiteDatabase.CREATE_IF_NECESSARY, null);
+            db.execSQL(table_query.toString());
+        } catch (Exception e) {
+            Log.e("db", e.toString());
+        }
+    }
+
+    private void getData(Double latitude, Double longitude, final String placeType) {
         StringBuilder googlePlacesUrl = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=" + latitude + "," + longitude);
         googlePlacesUrl.append("&radius=" + PROXIMITY_RADIUS);
         googlePlacesUrl.append("&types=" + placeType);
         googlePlacesUrl.append("&sensor=true");
         googlePlacesUrl.append("&key=" + GOOGLE_API_KEY);
-        Log.d(TAG, "url" + googlePlacesUrl.toString());
-        GooglePlacesReadTask googlePlacesReadTask = new GooglePlacesReadTask();
-        Object[] toPass = new Object[2];
-        toPass[0] = googleMap;
-        toPass[1] = googlePlacesUrl.toString();
-        googlePlacesReadTask.execute(toPass);
+
+        String url = googlePlacesUrl.toString();
+
+        Log.d(TAG, "url: " + url);
+
+        try {
+            AsyncHttpClient client = new AsyncHttpClient();
+            client.get(url, new JsonHttpResponseHandler() {
+                @Override
+                public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
+                    Log.d(TAG, "in success");
+                    decodeJson(response, placeType);
+
+                }
+
+                @Override
+                public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
+                    Log.d(TAG, "in failure");
+                }
+            });
+
+
+        } catch (Exception e) {
+            Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+
+    }
+
+    private void decodeJson(JSONObject response, String type) {
+        try {
+            JSONObject obj = new JSONObject(response.toString());
+            JSONArray result = obj.getJSONArray("results");
+
+            //Toast.makeText(getApplicationContext() , "Type " + type , Toast.LENGTH_SHORT).show();
+
+            for (int i = 1; i < result.length(); i++) {
+                Double lat = result.getJSONObject(i).getJSONObject("geometry").getJSONObject("location").getDouble("lat");
+                Double lng = result.getJSONObject(i).getJSONObject("geometry").getJSONObject("location").getDouble("lng");
+                String name = result.getJSONObject(i).getString("name");
+                String vicinity = result.getJSONObject(i).getString("vicinity");
+
+                try {
+                    ContentValues contentValues = new ContentValues();
+                    contentValues.put("Latitude", lat);
+                    contentValues.put("Longitude", lng);
+                    contentValues.put("Place_Name", name);
+                    contentValues.put("Vicinity", vicinity);
+                    contentValues.put("Type", type);
+                    db.insert("NEARBY", null, contentValues);
+
+                    Log.d(TAG, "vicinity: " + type);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            SharedPreferences sp = getSharedPreferences("new_user", MODE_PRIVATE);
+            SharedPreferences.Editor ed = sp.edit();
+            ed.putString("data", "1");
+            ed.commit();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void gpsLocationReceived(Location location) {
@@ -256,13 +353,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
-        // Get data associated with the specified position
-        // in the list (AdapterView)
         place = (String) parent.getItemAtPosition(position);
-        getLatLng(place);
+        try {
+            getLatLng(place);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         btn_nearbyData.setVisibility(View.VISIBLE);
-        //Toast.makeText(getApplicationContext(), place + String.valueOf(latitude) + " " + String.valueOf(longitude)
-        //     , Toast.LENGTH_SHORT).show();
 
     }
 }
